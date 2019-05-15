@@ -14,7 +14,7 @@ package ratingprediction
   import org.apache.spark.sql.Row
   import org.apache.spark.ml.classification.{LogisticRegression, RandomForestClassificationModel, RandomForestClassifier, LinearSVC}
   import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
-  import org.apache.spark.ml.feature.{HashingTF, IDF, IndexToString, StopWordsRemover, StringIndexer, Tokenizer, VectorIndexer, VectorAssembler}
+  import org.apache.spark.ml.feature.{HashingTF, IDF, IndexToString, StopWordsRemover, StringIndexer, Tokenizer, VectorIndexer, VectorAssembler, NGram}
 
   /** Computes an approximation to pi */
   object ratingPrediction {
@@ -37,11 +37,15 @@ package ratingprediction
       log
         .info("Data loaded success.")
 
+//      data.show(10)
+
       val pos_neg_data = data
         .withColumn("category",data("stars") > 3)
         .withColumn("text", regexp_replace(data("text"), "[,.!?:;]]", ""))
+      log
+        .info("Categorize reviews on 1 if stars > 3 otherwise 0 success.")
 
-      pos_neg_data.show(100)
+//      pos_neg_data.show(100)
 
       val tokenizer = new Tokenizer()
         .setInputCol("text")
@@ -53,31 +57,76 @@ package ratingprediction
 
 //      wordsData.show(10)
 
+      val ngram2 = new NGram()
+        .setN(2)
+        .setInputCol("words")
+        .setOutputCol("ngramwords2")
+      val ngramData2 = ngram2
+        .transform(wordsData)
+      log
+        .info("2-Gram tokenized words success.")
+
+//      ngram2Data.show(10)
+
+      val ngram3 = new NGram()
+        .setN(3)
+        .setInputCol("words")
+        .setOutputCol("ngramwords3")
+      val ngramData3 = ngram3
+        .transform(ngramData2)
+      log
+        .info("3-Gram tokenized words success.")
+
+//      ngram3Data.show(10)
+
+
       val hashingTF = new HashingTF()
         .setInputCol("words")
         .setOutputCol("rawFeatures")
         .setNumFeatures(65535)
       val featurizedData = hashingTF
-        .transform(wordsData)
+        .transform(ngramData3)
       log
-        .info("Hashing TF success.")
+        .info("Hashing TF tokenized words success.")
 
 //      featurizedData.show(10)
+
+      val hashingTFngram2 = new HashingTF()
+        .setInputCol("ngramwords2")
+        .setOutputCol("2gramFeatures")
+        .setNumFeatures(65535)
+      val featurizedngram2Data = hashingTFngram2
+        .transform(featurizedData)
+      log
+        .info("Hashing TF 2-Gram tokenized words success.")
+
+//      featurizedngram2Data.show(10)
+
+      val hashingTFngram3 = new HashingTF()
+        .setInputCol("ngramwords3")
+        .setOutputCol("3gramFeatures")
+        .setNumFeatures(65535)
+      val featurizedngram3Data = hashingTFngram3
+        .transform(featurizedngram2Data)
+      log
+        .info("Hashing TF 3-Gram tokenized words success.")
+
+//      featurizedngram3Data.show(10)
 
       val idf = new IDF()
         .setInputCol("rawFeatures")
         .setOutputCol("idfFeatures")
       val idfModel = idf
-        .fit(featurizedData)
+        .fit(featurizedngram3Data)
       val rescaledData = idfModel
-        .transform(featurizedData)
+        .transform(featurizedngram3Data)
       log
         .info("IDF-TF success.")
 
 //      rescaledData.show(10)
 
       val assembler = new VectorAssembler()
-        .setInputCols(Array("idfFeatures", "category"))
+        .setInputCols(Array("idfFeatures", "category", "2gramFeatures", "3gramFeatures"))
         .setOutputCol("features")
       val transformed = assembler
         .transform(rescaledData)
@@ -105,7 +154,7 @@ package ratingprediction
 
 //       Split the data into training and test sets (30% held out for testing).
       val Array(trainingData, testData) = transformed
-        .randomSplit(Array(0.7, 0.3))
+        .randomSplit(Array(0.9, 0.1))
       log
         .info("Split data to training and test success.")
 
@@ -118,8 +167,8 @@ package ratingprediction
 
       val lr = new LogisticRegression()
         .setMaxIter(10)
-        .setRegParam(0.3)
-        .setElasticNetParam(0.8)
+        .setRegParam(0.2)
+        .setElasticNetParam(0.0)
         .setLabelCol("indexedLabel")
         .setFeaturesCol("indexedFeatures")
 
