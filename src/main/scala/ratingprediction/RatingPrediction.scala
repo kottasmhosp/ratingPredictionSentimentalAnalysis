@@ -1,20 +1,14 @@
 package ratingprediction
 
-  import org.apache.spark.sql.SparkSession
   import org.apache.log4j.{Level, LogManager, Logger}
-  import com.github.fommil.netlib
-  import math.pow
-  import org.apache.spark.ml.Pipeline
+  import org.apache.spark.sql.SparkSession
   import org.apache.spark.sql.functions.regexp_replace
-  import org.apache.spark.ml.evaluation.RegressionEvaluator
-  import org.apache.spark.ml.feature.VectorIndexer
-  import org.apache.spark.ml.regression.{RandomForestRegressionModel, RandomForestRegressor}
-  import org.apache.spark.ml.linalg.Vector
+  import org.apache.spark.ml.feature.{HashingTF, IDF, IndexToString, NGram, StopWordsRemover, StringIndexer, Tokenizer, VectorAssembler, VectorIndexer}
   import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
-  import org.apache.spark.sql.Row
-  import org.apache.spark.ml.classification.{LogisticRegression, RandomForestClassificationModel, RandomForestClassifier, LinearSVC}
-  import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
-  import org.apache.spark.ml.feature.{HashingTF, IDF, IndexToString, StopWordsRemover, StringIndexer, Tokenizer, VectorIndexer, VectorAssembler, NGram}
+  import org.apache.spark.ml.Pipeline
+  import org.apache.spark.ml.regression.{RandomForestRegressionModel, RandomForestRegressor}
+  import org.apache.spark.ml.classification.{LogisticRegression, NaiveBayes, RandomForestClassificationModel, RandomForestClassifier}
+  import org.apache.spark.ml.evaluation.{MulticlassClassificationEvaluator, RegressionEvaluator}
 
   /** Computes an approximation to pi */
   object ratingPrediction {
@@ -45,7 +39,7 @@ package ratingprediction
       log
         .info("Categorize reviews on 1 if stars > 3 otherwise 0 success.")
 
-      pos_neg_data.show(100)
+//      pos_neg_data.show(100)
 
       val tokenizer = new Tokenizer()
         .setInputCol("text")
@@ -154,7 +148,7 @@ package ratingprediction
 
 //       Split the data into training and test sets (30% held out for testing).
       val Array(trainingData, testData) = transformed
-        .randomSplit(Array(0.9, 0.1))
+        .randomSplit(Array(0.7, 0.3))
       log
         .info("Split data to training and test success.")
 
@@ -162,14 +156,18 @@ package ratingprediction
 //        .setLabelCol("indexedLabel")
 //        .setFeaturesCol("indexedFeatures")
 //        .setNumTrees(10)
-//      val rfModel = model.stages(2).asInstanceOf[RandomForestClassificationModel]
 
+//
+//      val lr = new LogisticRegression()
+//        .setMaxIter(10)
+//        .setRegParam(0.2)
+//        .setElasticNetParam(0.0)
+//        .setLabelCol("indexedLabel")
+//        .setFeaturesCol("indexedFeatures")
 
-      val lr = new LogisticRegression()
-        .setMaxIter(10)
-        .setRegParam(0.2)
-        .setElasticNetParam(0.0)
+      val naba = new NaiveBayes()
         .setLabelCol("indexedLabel")
+        .setModelType("multinomial")
         .setFeaturesCol("indexedFeatures")
 
       log
@@ -185,7 +183,7 @@ package ratingprediction
 
 //       Chain indexers and forest in a Pipeline.
       val pipeline = new Pipeline()
-        .setStages(Array(labelIndexer, featureIndexer, lr, labelConverter))
+        .setStages(Array(labelIndexer, featureIndexer, naba, labelConverter))
       log
         .info("Pipeline Set Stages success.")
 
@@ -210,7 +208,8 @@ package ratingprediction
         .setPredictionCol("prediction")
         .setMetricName("accuracy")
       val accuracy = evaluator.evaluate(predictions)
-      println("Success = " + (accuracy))
+      log
+        .info("Success = " + (accuracy))
 
       spark.stop
     }
