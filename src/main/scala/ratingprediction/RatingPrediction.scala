@@ -41,11 +41,11 @@ package ratingprediction
 
       val pos_neg_data = data
         .withColumn("category",data("stars") > 3)
-        .withColumn("text", regexp_replace(data("text"), "[,.!?:;]]", ""))
+        .withColumn("text", regexp_replace(data("text"), "[()#*,.!?:;]", ""))
       log
         .info("Categorize reviews on 1 if stars > 3 otherwise 0 success.")
 
-//      pos_neg_data.show(100)
+      pos_neg_data.show(100)
 
       val tokenizer = new Tokenizer()
         .setInputCol("text")
