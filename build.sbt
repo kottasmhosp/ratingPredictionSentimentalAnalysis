@@ -9,8 +9,7 @@ mainClass in (Compile, packageBin) := Some("ratingprediction.ratingPrediction")
 libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % "2.4.3",
   "org.apache.spark" %% "spark-sql" % "2.4.3",
-  "org.apache.spark" %% "spark-mllib" % "2.4.3",
-  "com.github.master" %% "spark-stemming" % "0.2.1"
+  "org.apache.spark" %% "spark-mllib" % "2.4.3"
 )
 
 mainClass in assembly := Some("ratingprediction.ratingPrediction")
