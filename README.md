@@ -13,10 +13,8 @@ Requirements:
 
 
 Compile:
-  
   sbt clean assembly
 
 
 Run:
-  
   ./run.sh
